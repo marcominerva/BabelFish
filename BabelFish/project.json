@@ -1,14 +1,13 @@
 ﻿{
   "dependencies": {
-    "Microsoft.NETCore.UniversalWindowsPlatform": "5.2.2",
-    "Microsoft.Xaml.Behaviors.Uwp.Managed": "2.0.0",
-    "MvvmLightLibs": "5.3.0",
-    "Newtonsoft.Json": "10.0.2",
-    "System.ValueTuple": "4.3.1",
+    "Microsoft.NETCore.UniversalWindowsPlatform": "6.1.4",
+    "MvvmLightLibs": "5.4.1",
+    "Newtonsoft.Json": "11.0.2",
+    "System.ValueTuple": "4.4.0",
     "Template10": "1.1.12"
   },
   "frameworks": {
-    "uap10.0": {}
+    "uap10.0.14393": {}
   },
   "runtimes": {
     "win10-arm": {},

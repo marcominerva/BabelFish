@@ -1,5 +1,4 @@
-﻿using BabelFish.Behaviors;
-using BabelFish.Views;
+﻿using BabelFish.Views;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -30,18 +29,19 @@ namespace BabelFish.Services
     /// </summary>
     public class SoundPlayer
     {
-        private static SoundPlayer instance = new SoundPlayer();
         private static MediaPlayer mediaPlayer;
 
-        public static SoundPlayer Instance => instance;
+        public static SoundPlayer Instance { get; } = new SoundPlayer();
 
         static SoundPlayer()
         {
             // Register media elements to the Sound Service.
-            mediaPlayer = new MediaPlayer();
-            mediaPlayer.Volume = 1;
-            mediaPlayer.AudioCategory = MediaPlayerAudioCategory.Speech;
-            mediaPlayer.AudioDeviceType = MediaPlayerAudioDeviceType.Communications;
+            mediaPlayer = new MediaPlayer
+            {
+                Volume = 1,
+                AudioCategory = MediaPlayerAudioCategory.Speech,
+                AudioDeviceType = MediaPlayerAudioDeviceType.Communications
+            };
         }
 
         public async void Play(byte[] buffer, string mimeType)

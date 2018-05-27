@@ -116,11 +116,11 @@ namespace BabelFish.ViewModels
 
         public ObservableCollection<ChatMessage> Messages { get; set; } = new ObservableCollection<ChatMessage>();
 
-        public AutoRelayCommand ConnectSwitchCommand { get; set; }
+        public RelayCommand ConnectSwitchCommand { get; set; }
 
-        public AutoRelayCommand StartTalkingCommand { get; set; }
+        public RelayCommand StartTalkingCommand { get; set; }
 
-        public AutoRelayCommand StopTalkingCommand { get; set; }
+        public RelayCommand StopTalkingCommand { get; set; }
 
         public MainViewModel()
         {
@@ -132,13 +132,13 @@ namespace BabelFish.ViewModels
 
         private void CreateCommands()
         {
-            ConnectSwitchCommand = new AutoRelayCommand(async () => await DoConnectSwitchAsync());
+            ConnectSwitchCommand = new RelayCommand(async () => await DoConnectSwitchAsync());
 
-            StartTalkingCommand = new AutoRelayCommand(() => isTalking = true);
+            StartTalkingCommand = new RelayCommand(() => isTalking = true);
 
-            StopTalkingCommand = new AutoRelayCommand(async () =>
+            StopTalkingCommand = new RelayCommand(async () =>
             {
-                await Task.Delay(1000);
+                await Task.Delay(2000);
                 isTalking = false;
             });
         }

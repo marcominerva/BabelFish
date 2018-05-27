@@ -24,7 +24,7 @@ namespace BabelFish.ViewModels
             => Task.CompletedTask;
 
         [JsonIgnore]
-        public Template10.Services.NavigationService.INavigationService NavigationService { get; set; }
+        public INavigationService NavigationService { get; set; }
 
         [JsonIgnore]
         public Template10.Common.IDispatcherWrapper Dispatcher { get; set; }

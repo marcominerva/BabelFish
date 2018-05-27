@@ -19,7 +19,7 @@ namespace BabelFish.Services
 {
     public class SpeechTranslateClient
     {
-        private const string SpeechTranslateUrl = @"wss://dev.microsofttranslator.com/api/speech/translate?from={0}&to={1}{2}";
+        private const string SpeechTranslateUrl = @"wss://dev.microsofttranslator.com/speech/translate?from={0}&to={1}{2}&api-version=1.0";
 
         public delegate void OnSpeechResult(RecognitionResult result);
         public delegate void OnTextToSpeechData(AudioFrame frame);
@@ -113,18 +113,21 @@ namespace BabelFish.Services
             var token = "Bearer " + await auth.GetAccessTokenAsync();
             webSocket.SetRequestHeader("Authorization", token);
 
-            var url = string.Format(SpeechTranslateUrl, from, to, voice == null ? string.Empty : "&features=texttospeech&voice=" + voice);
+            var url = string.Format(SpeechTranslateUrl, from, to, voice == null ? string.Empty : "&features=texttospeech&voice=" + Uri.EscapeDataString(voice));
 
             try
             {
                 dataWriter?.Dispose();
             }
             catch
-            { }
+            {
+            }
 
             // setup the data writer
-            dataWriter = new DataWriter(webSocket.OutputStream);
-            dataWriter.ByteOrder = ByteOrder.LittleEndian;
+            dataWriter = new DataWriter(webSocket.OutputStream)
+            {
+                ByteOrder = ByteOrder.LittleEndian
+            };
             dataWriter.WriteBytes(GetWaveHeader());
 
             // connect to the service
@@ -240,13 +243,13 @@ namespace BabelFish.Services
                 writer.Write(0);
                 writer.Write(Encoding.UTF8.GetBytes("WAVE"));
                 writer.Write(Encoding.UTF8.GetBytes("fmt "));
-                writer.Write((int)(18 + extraSize)); // wave format length
+                writer.Write(18 + extraSize); // wave format length
                 writer.Write((short)1);// PCM
-                writer.Write((short)channels);
-                writer.Write((int)sampleRate);
-                writer.Write((int)averageBytesPerSecond);
-                writer.Write((short)blockAlign);
-                writer.Write((short)bitsPerSample);
+                writer.Write(channels);
+                writer.Write(sampleRate);
+                writer.Write(averageBytesPerSecond);
+                writer.Write(blockAlign);
+                writer.Write(bitsPerSample);
                 writer.Write((short)extraSize);
 
                 writer.Write(Encoding.UTF8.GetBytes("data"));
@@ -333,7 +336,7 @@ namespace BabelFish.Services
                     ((IMemoryBufferByteAccess)reference).GetBuffer(out var dataInBytes, out var capacityInBytes);
 
                     // convert the bytes into float
-                    float* dataInFloat = (float*)dataInBytes;
+                    var dataInFloat = (float*)dataInBytes;
 
                     for (var i = 0; i < capacityInBytes / sizeof(float); i++)
                     {
@@ -352,9 +355,17 @@ namespace BabelFish.Services
         /// <returns></returns>
         private static Int16 FloatToInt16(float value)
         {
-            float f = value * Int16.MaxValue;
-            if (f > Int16.MaxValue) f = Int16.MaxValue;
-            if (f < Int16.MinValue) f = Int16.MinValue;
+            var f = value * Int16.MaxValue;
+
+            if (f > Int16.MaxValue)
+            {
+                f = Int16.MaxValue;
+            }
+            else if (f < Int16.MinValue)
+            {
+                f = Int16.MinValue;
+            }
+
             return (Int16)f;
         }
 
@@ -384,9 +395,8 @@ namespace BabelFish.Services
                     // Get the buffer from the AudioFrame to write to
                     ((IMemoryBufferByteAccess)reference).GetBuffer(out var dataInBytes, out var capacityInBytes);
 
-                    Int16* dataInInt16 = (Int16*)dataInBytes;
-
-                    for (int i = 0; i < capacityInBytes / sizeof(Int16); i++)
+                    var dataInInt16 = (Int16*)dataInBytes;
+                    for (var i = 0; i < capacityInBytes / sizeof(Int16); i++)
                     {
                         // write to the underlying stream
                         dataInInt16[i] = reader.ReadInt16();

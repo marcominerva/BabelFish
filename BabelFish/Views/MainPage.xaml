@@ -2,8 +2,6 @@
     x:Class="BabelFish.Views.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:Interactivity="using:Microsoft.Xaml.Interactivity"
-    xmlns:behaviors="using:BabelFish.Behaviors"
     xmlns:controls="using:Template10.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:m="using:BabelFish.Models"
@@ -113,9 +111,11 @@
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
-                <Interactivity:Interaction.Behaviors>
-                    <behaviors:ScrollToBottomBehavior ItemsSource="{Binding Messages}" />
-                </Interactivity:Interaction.Behaviors>
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsStackPanel ItemsUpdatingScrollMode="KeepLastItemInView" />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
             </ListView>
 
             <Grid Grid.Row="3" Margin="5">
