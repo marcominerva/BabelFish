@@ -390,7 +390,7 @@ namespace BabelFish.Services
 
             using (var buffer = frame.LockBuffer(AudioBufferAccessMode.Write))
             {
-                using (IMemoryBufferReference reference = buffer.CreateReference())
+                using (var reference = buffer.CreateReference())
                 {
                     // Get the buffer from the AudioFrame to write to
                     ((IMemoryBufferByteAccess)reference).GetBuffer(out var dataInBytes, out var capacityInBytes);

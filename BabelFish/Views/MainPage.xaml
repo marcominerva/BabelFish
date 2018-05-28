@@ -2,6 +2,8 @@
     x:Class="BabelFish.Views.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:Interactivity="using:Microsoft.Xaml.Interactivity"
+    xmlns:behaviors="using:BabelFish.Behaviors"
     xmlns:controls="using:Template10.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:m="using:BabelFish.Models"
@@ -32,12 +34,12 @@
             <controls:PageHeader Frame="{x:Bind Frame}" Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}">
                 <controls:PageHeader.PrimaryCommands>
                     <AppBarButton
-                        Command="{x:Bind ViewModel.ConnectSwitchCommand}"
+                        Command="{x:Bind ViewModel.ConnectCommand}"
                         Icon="Play"
                         Label="Connect"
                         Visibility="{Binding IsConnected, Converter={StaticResource BooleanNegationToVisibilityConverter}}" />
                     <AppBarButton
-                        Command="{x:Bind ViewModel.ConnectSwitchCommand}"
+                        Command="{x:Bind ViewModel.DisconnectCommand}"
                         Icon="Stop"
                         Label="Disconnect"
                         Visibility="{Binding IsConnected, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -135,5 +137,22 @@
                 </Button>
             </Grid>
         </Grid>
+
+        <Interactivity:Interaction.Behaviors>
+            <behaviors:PushButtonBehavior
+                ButtonType="PullDown"
+                ClickCommand="{x:Bind ViewModel.ConnectCommand}"
+                PinNumber="26" />
+            <behaviors:PushButtonBehavior
+                ButtonType="PullDown"
+                ClickCommand="{x:Bind ViewModel.DisconnectCommand}"
+                PinNumber="17" />
+            <behaviors:PushButtonBehavior
+                ButtonType="PullDown"
+                PinNumber="27"
+                PressedCommand="{x:Bind ViewModel.StartTalkingCommand}"
+                ReleasedCommand="{x:Bind ViewModel.StopTalkingCommand}" />
+        </Interactivity:Interaction.Behaviors>
+
     </Grid>
 </Page>

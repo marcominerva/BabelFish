@@ -63,7 +63,7 @@ namespace BabelFish.Services
 
         public void Play(string sound)
         {
-            var source = $"ms-appx:///Audio/{sound}.mp3";
+            var source = $"ms-appx:///Assets/Audio/{sound}.mp3";
 
             mediaPlayer.Source = MediaSource.CreateFromUri(new Uri(source));
             mediaPlayer.Play();

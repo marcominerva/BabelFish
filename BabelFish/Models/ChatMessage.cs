@@ -12,6 +12,8 @@ namespace BabelFish.Models
 
         public string TranslatedText { get; set; }
 
-        public string Language { get; set; }
+        public string SourceLanguage { get; set; }
+
+        public string TranslationLanguage { get; set; }
     }
 }

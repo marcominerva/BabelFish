@@ -22,7 +22,7 @@ namespace BabelFish
     sealed partial class App : Template10.Common.BootStrapper
     {
         public override Task OnStartAsync(StartKind startKind, IActivatedEventArgs args)
-        {
+        {            
             NavigationService.Navigate(typeof(MainPage));
             return Task.CompletedTask;
         }

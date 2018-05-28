@@ -24,6 +24,8 @@ using Windows.System.UserProfile;
 using Windows.System.Profile;
 using System.IO;
 using System.Diagnostics;
+using Windows.Storage;
+using Newtonsoft.Json;
 
 namespace BabelFish.ViewModels
 {
@@ -116,7 +118,9 @@ namespace BabelFish.ViewModels
 
         public ObservableCollection<ChatMessage> Messages { get; set; } = new ObservableCollection<ChatMessage>();
 
-        public RelayCommand ConnectSwitchCommand { get; set; }
+        public RelayCommand ConnectCommand { get; set; }
+
+        public RelayCommand DisconnectCommand { get; set; }
 
         public RelayCommand StartTalkingCommand { get; set; }
 
@@ -132,9 +136,16 @@ namespace BabelFish.ViewModels
 
         private void CreateCommands()
         {
-            ConnectSwitchCommand = new RelayCommand(async () => await DoConnectSwitchAsync());
+            ConnectCommand = new RelayCommand(async () => await DoConnectAsync());
+            DisconnectCommand = new RelayCommand(async () => await DoDisconnectAsync());
 
-            StartTalkingCommand = new RelayCommand(() => isTalking = true);
+            StartTalkingCommand = new RelayCommand(() =>
+            {
+                if (isConnected)
+                {
+                    isTalking = true;
+                }
+            });
 
             StopTalkingCommand = new RelayCommand(async () =>
             {
@@ -143,23 +154,19 @@ namespace BabelFish.ViewModels
             });
         }
 
-        private async Task DoConnectSwitchAsync()
+        private async Task<Settings> GetSettingsAsync()
         {
-            if (!isConnected)
+            try
             {
-                try
-                {
-                    await DoConnectAsync();
-                }
-                catch
-                {
-                    // Connection error. Calls disconnect methods to be sure not to leave the app in an unpredictable state.
-                    await DoDisconnectAsync();
-                }
+                var storageFolder = KnownFolders.DocumentsLibrary;
+                var settingsFile = await storageFolder.GetFileAsync("settings.babelfish");
+                var content = await FileIO.ReadTextAsync(settingsFile);
+
+                return JsonConvert.DeserializeObject<Settings>(content);
             }
-            else
+            catch
             {
-                await DoDisconnectAsync();
+                return null;
             }
         }
 
@@ -171,7 +178,8 @@ namespace BabelFish.ViewModels
 
             StatusMessage = "Creating AudioGraph";
 
-            var pcmEncoding = AudioEncodingProperties.CreatePcm(16000, 1, 16);
+            var inputPcmEncoding = AudioEncodingProperties.CreatePcm(16000, 1, 16);
+            var outputPcmEncoding = AudioEncodingProperties.CreatePcm(24000, 1, 16);
 
             // Construct the audio graph
             // mic -> Machine Translate Service
@@ -180,7 +188,7 @@ namespace BabelFish.ViewModels
               {
                   DesiredRenderDeviceAudioProcessing = AudioProcessing.Raw,
                   AudioRenderCategory = AudioRenderCategory.Speech,
-                  EncodingProperties = pcmEncoding
+                  EncodingProperties = inputPcmEncoding
               });
 
             if (result.Status == AudioGraphCreationStatus.Success)
@@ -190,13 +198,21 @@ namespace BabelFish.ViewModels
                 // mic -> machine translation speech translate
                 var microphone = await DeviceInformation.CreateFromIdAsync(selectedInputDevice.Id);
 
-                speechTranslateOutputMode = audioGraph.CreateFrameOutputNode(pcmEncoding);
-                audioGraph.QuantumProcessed += (s, a) => SendToSpeechTranslate(speechTranslateOutputMode.GetFrame());
+                speechTranslateOutputMode = audioGraph.CreateFrameOutputNode(inputPcmEncoding);
+                audioGraph.QuantumProcessed += (s, a) =>
+                {
+                    try
+                    {
+                        SendToSpeechTranslate(speechTranslateOutputMode.GetFrame());
+                    }
+                    catch
+                    {
+                    }
+                };
 
                 speechTranslateOutputMode.Start();
 
-                var micInputResult = await audioGraph.CreateDeviceInputNodeAsync(MediaCategory.Speech, pcmEncoding, microphone);
-
+                var micInputResult = await audioGraph.CreateDeviceInputNodeAsync(MediaCategory.Speech, inputPcmEncoding, microphone);
                 if (micInputResult.Status == AudioDeviceNodeCreationStatus.Success)
                 {
                     micInputResult.DeviceInputNode.AddOutgoingConnection(speechTranslateOutputMode);
@@ -209,7 +225,6 @@ namespace BabelFish.ViewModels
 
                 // machine translation text to speech output -> speaker
                 var speakerOutputResult = await audioGraph.CreateDeviceOutputNodeAsync();
-
                 if (speakerOutputResult.Status == AudioDeviceNodeCreationStatus.Success)
                 {
                     speakerOutputNode = speakerOutputResult.DeviceOutputNode;
@@ -220,7 +235,7 @@ namespace BabelFish.ViewModels
                     throw new InvalidOperationException();
                 }
 
-                textToSpeechOutputNode = audioGraph.CreateFrameInputNode(pcmEncoding);
+                textToSpeechOutputNode = audioGraph.CreateFrameInputNode(outputPcmEncoding);
                 textToSpeechOutputNode.AddOutgoingConnection(speakerOutputNode);
                 textToSpeechOutputNode.Start();
 
@@ -266,8 +281,9 @@ namespace BabelFish.ViewModels
         {
             var chatMessage = new ChatMessage
             {
-                Language = selectedSourceLanguage.Code,
+                SourceLanguage = selectedSourceLanguage.Code,
                 SourceText = result.Recognition,
+                TranslationLanguage = selectedTranslationLanguage.Code,
                 TranslatedText = result.Translation
             };
 
@@ -314,6 +330,14 @@ namespace BabelFish.ViewModels
             // Gets audio input and output devices.
             await LoadInputDevicesAsync();
             await LoadOutputDevicesAsync();
+
+            var settings = await GetSettingsAsync();
+            if (settings != null)
+            {
+                SelectedSourceLanguage = SourceLanguages.FirstOrDefault(l => l.Code == settings.Source);
+                SelectedTranslationLanguage = TranslationLanguages.FirstOrDefault(l => l.Code == settings.Translation);
+                SelectedVoice = Voices.FirstOrDefault(l => l.Code == settings.Voice);
+            }
 
             if (!ready)
             {
@@ -392,12 +416,7 @@ namespace BabelFish.ViewModels
         /// Send the audio result to the speaker output node.
         /// </summary>
         /// <param name="frame"></param>
-        private void SendAudioOutput(AudioFrame frame)
-        {
-            textToSpeechOutputNode.AddFrame(frame);
-        }
-
-        private void Play(Stream stream) => SoundPlayer.Instance.Play(stream, "audio/mp3");
+        private void SendAudioOutput(AudioFrame frame) => textToSpeechOutputNode.AddFrame(frame);
 
         private void Play(Sounds sound) => Play(sound.ToString());
 
