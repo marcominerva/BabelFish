@@ -36,7 +36,7 @@ namespace BabelFish.ViewModels
         private AudioFrameInputNode textToSpeechOutputNode;
         private AudioDeviceOutputNode speakerOutputNode;
 
-        private readonly SpeechTranslateClient speechClient;
+        private SpeechTranslateClient speechClient;
         private readonly Dictionary<string, IList<Voice>> voices = new Dictionary<string, IList<Voice>>();
 
         private bool isTalking = false;
@@ -44,28 +44,28 @@ namespace BabelFish.ViewModels
         private string message;
         public string Message
         {
-            get { return message; }
-            set { Set(ref message, value); }
+            get => message;
+            set => Set(ref message, value);
         }
 
         private bool isConnected;
         public bool IsConnected
         {
-            get { return isConnected; }
-            set { Set(ref isConnected, value); }
+            get => isConnected;
+            set => Set(ref isConnected, value);
         }
 
         private Language selectedSourceLanguage;
         public Language SelectedSourceLanguage
         {
-            get { return selectedSourceLanguage; }
-            set { Set(ref selectedSourceLanguage, value); }
+            get => selectedSourceLanguage;
+            set => Set(ref selectedSourceLanguage, value);
         }
 
         private Language selectedTranslationLanguage;
         public Language SelectedTranslationLanguage
         {
-            get { return selectedTranslationLanguage; }
+            get => selectedTranslationLanguage;
             set
             {
                 if (Set(ref selectedTranslationLanguage, value))
@@ -79,8 +79,8 @@ namespace BabelFish.ViewModels
         private AudioDevice selectedInputDevice;
         public AudioDevice SelectedInputDevice
         {
-            get { return selectedInputDevice; }
-            set { Set(ref selectedInputDevice, value); }
+            get => selectedInputDevice;
+            set => Set(ref selectedInputDevice, value);
         }
 
         private AudioDevice selectedOutputDevice;
@@ -93,15 +93,15 @@ namespace BabelFish.ViewModels
         private Voice selectedVoice;
         public Voice SelectedVoice
         {
-            get { return selectedVoice; }
-            set { Set(ref selectedVoice, value); }
+            get => selectedVoice;
+            set => Set(ref selectedVoice, value);
         }
 
         private string statusMessage;
         public string StatusMessage
         {
-            get { return statusMessage ?? "Babel Fish"; }
-            set { Set(ref statusMessage, value); }
+            get => statusMessage ?? "Babel Fish";
+            set => Set(ref statusMessage, value);
         }
 
         public ObservableCollection<AudioDevice> InputDevices { get; set; } = new ObservableCollection<AudioDevice>();
@@ -128,9 +128,6 @@ namespace BabelFish.ViewModels
 
         public MainViewModel()
         {
-            // Initializes the object used for speech recognition.
-            speechClient = new SpeechTranslateClient(Constants.SpeechSubscriptionKey);
-
             CreateCommands();
         }
 
@@ -172,80 +169,89 @@ namespace BabelFish.ViewModels
 
         private async Task DoConnectAsync()
         {
-            StatusMessage = "Connecting to Speech Translate Service";
-
-            await speechClient.Connect(selectedSourceLanguage.Code, selectedTranslationLanguage.Code, selectedVoice.Code, DisplayResult, SendAudioOutput, ConnectionClosed);
-
-            StatusMessage = "Creating AudioGraph";
-
-            var inputPcmEncoding = AudioEncodingProperties.CreatePcm(16000, 1, 16);
-            var outputPcmEncoding = AudioEncodingProperties.CreatePcm(24000, 1, 16);
-
-            // Construct the audio graph
-            // mic -> Machine Translate Service
-            var result = await AudioGraph.CreateAsync(
-              new AudioGraphSettings(AudioRenderCategory.Speech)
-              {
-                  DesiredRenderDeviceAudioProcessing = AudioProcessing.Raw,
-                  AudioRenderCategory = AudioRenderCategory.Speech,
-                  EncodingProperties = inputPcmEncoding
-              });
-
-            if (result.Status == AudioGraphCreationStatus.Success)
+            try
             {
-                audioGraph = result.Graph;
+                StatusMessage = "Connecting to Speech Translate Service";
 
-                // mic -> machine translation speech translate
-                var microphone = await DeviceInformation.CreateFromIdAsync(selectedInputDevice.Id);
+                await speechClient.Connect(selectedSourceLanguage.Code, selectedTranslationLanguage.Code, selectedVoice.Code, DisplayResult, SendAudioOutput, ConnectionClosed);
 
-                speechTranslateOutputMode = audioGraph.CreateFrameOutputNode(inputPcmEncoding);
-                audioGraph.QuantumProcessed += (s, a) =>
+                StatusMessage = "Creating AudioGraph";
+
+                var inputPcmEncoding = AudioEncodingProperties.CreatePcm(16000, 1, 16);
+                var outputPcmEncoding = AudioEncodingProperties.CreatePcm(24000, 1, 16);
+
+                // Construct the audio graph
+                // mic -> Machine Translate Service
+                var result = await AudioGraph.CreateAsync(
+                  new AudioGraphSettings(AudioRenderCategory.Speech)
+                  {
+                      DesiredRenderDeviceAudioProcessing = AudioProcessing.Raw,
+                      AudioRenderCategory = AudioRenderCategory.Speech,
+                      EncodingProperties = inputPcmEncoding
+                  });
+
+                if (result.Status == AudioGraphCreationStatus.Success)
                 {
-                    try
+                    audioGraph = result.Graph;
+
+                    // mic -> machine translation speech translate
+                    var microphone = await DeviceInformation.CreateFromIdAsync(selectedInputDevice.Id);
+
+                    speechTranslateOutputMode = audioGraph.CreateFrameOutputNode(inputPcmEncoding);
+                    audioGraph.QuantumProcessed += (s, a) =>
                     {
-                        SendToSpeechTranslate(speechTranslateOutputMode.GetFrame());
-                    }
-                    catch
+                        try
+                        {
+                            SendToSpeechTranslate(speechTranslateOutputMode.GetFrame());
+                        }
+                        catch
+                        {
+                        }
+                    };
+
+                    speechTranslateOutputMode.Start();
+
+                    var micInputResult = await audioGraph.CreateDeviceInputNodeAsync(MediaCategory.Speech, inputPcmEncoding, microphone);
+                    if (micInputResult.Status == AudioDeviceNodeCreationStatus.Success)
                     {
+                        micInputResult.DeviceInputNode.AddOutgoingConnection(speechTranslateOutputMode);
+                        micInputResult.DeviceInputNode.Start();
                     }
-                };
+                    else
+                    {
+                        throw new InvalidOperationException();
+                    }
 
-                speechTranslateOutputMode.Start();
+                    // machine translation text to speech output -> speaker
+                    var speakerOutputResult = await audioGraph.CreateDeviceOutputNodeAsync();
+                    if (speakerOutputResult.Status == AudioDeviceNodeCreationStatus.Success)
+                    {
+                        speakerOutputNode = speakerOutputResult.DeviceOutputNode;
+                        speakerOutputNode.Start();
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException();
+                    }
 
-                var micInputResult = await audioGraph.CreateDeviceInputNodeAsync(MediaCategory.Speech, inputPcmEncoding, microphone);
-                if (micInputResult.Status == AudioDeviceNodeCreationStatus.Success)
-                {
-                    micInputResult.DeviceInputNode.AddOutgoingConnection(speechTranslateOutputMode);
-                    micInputResult.DeviceInputNode.Start();
-                }
-                else
-                {
-                    throw new InvalidOperationException();
-                }
+                    textToSpeechOutputNode = audioGraph.CreateFrameInputNode(outputPcmEncoding);
+                    textToSpeechOutputNode.AddOutgoingConnection(speakerOutputNode);
+                    textToSpeechOutputNode.Start();
 
-                // machine translation text to speech output -> speaker
-                var speakerOutputResult = await audioGraph.CreateDeviceOutputNodeAsync();
-                if (speakerOutputResult.Status == AudioDeviceNodeCreationStatus.Success)
-                {
-                    speakerOutputNode = speakerOutputResult.DeviceOutputNode;
-                    speakerOutputNode.Start();
-                }
-                else
-                {
-                    throw new InvalidOperationException();
+                    // start the graph
+                    audioGraph.Start();
                 }
 
-                textToSpeechOutputNode = audioGraph.CreateFrameInputNode(outputPcmEncoding);
-                textToSpeechOutputNode.AddOutgoingConnection(speakerOutputNode);
-                textToSpeechOutputNode.Start();
-
-                // start the graph
-                audioGraph.Start();
+                IsConnected = true;
+                StatusMessage = "Ready";
+                Play(Sounds.Connected);
             }
-
-            IsConnected = true;
-            StatusMessage = "Ready";
-            Play(Sounds.Connected);
+            catch
+            {
+                IsConnected = false;
+                StatusMessage = "Connection erorr";
+                Play(Sounds.ConnectionError);
+            }
         }
 
         private Task DoDisconnectAsync()
@@ -310,38 +316,32 @@ namespace BabelFish.ViewModels
 
         public override async Task OnNavigatedToAsync(object parameter, NavigationMode mode, IDictionary<string, object> state)
         {
-            var ready = false;
+            var settings = await GetSettingsAsync();
+            speechClient = new SpeechTranslateClient(settings?.SpeechSubscriptionKey ?? Constants.SpeechSubscriptionKey);
 
             try
             {
+                // Initializes services.
+                await speechClient.InitializeAsync;
+
                 // Gets speech languages.
                 await LoadSpeechLanguagesAsync();
 
-                // Initializes services.
-                var task = speechClient.InitializeAsync();
+                // Gets audio input and output devices.
+                await LoadInputDevicesAsync();
+                await LoadOutputDevicesAsync();
 
-                ready = true;
+                if (settings != null)
+                {
+                    speechClient = new SpeechTranslateClient(settings.SpeechSubscriptionKey);
+                    SelectedSourceLanguage = SourceLanguages.FirstOrDefault(l => l.Code == settings.Source);
+                    SelectedTranslationLanguage = TranslationLanguages.FirstOrDefault(l => l.Code == settings.Translation);
+                    SelectedVoice = Voices.FirstOrDefault(l => l.Code == settings.Voice);
+                }
             }
             catch
             {
-                ready = false;
-            }
-
-            // Gets audio input and output devices.
-            await LoadInputDevicesAsync();
-            await LoadOutputDevicesAsync();
-
-            var settings = await GetSettingsAsync();
-            if (settings != null)
-            {
-                SelectedSourceLanguage = SourceLanguages.FirstOrDefault(l => l.Code == settings.Source);
-                SelectedTranslationLanguage = TranslationLanguages.FirstOrDefault(l => l.Code == settings.Translation);
-                SelectedVoice = Voices.FirstOrDefault(l => l.Code == settings.Voice);
-            }
-
-            if (!ready)
-            {
-                Play(Sounds.NoInternetConnection);
+                Play(Sounds.ConnectionError);
             }
 
             await base.OnNavigatedToAsync(parameter, mode, state);

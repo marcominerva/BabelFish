@@ -8,6 +8,8 @@ namespace BabelFish.Models
 {
     public class Settings
     {
+        public string SpeechSubscriptionKey { get; set; }
+
         public string Source { get; set; }
 
         public string Translation { get; set; }

@@ -45,7 +45,6 @@ namespace BabelFish.Services
         private async Task RenewAccessTokenAsync()
         {
             token = await FetchTokenAsync(FetchTokenUri, subscriptionKey);
-            Debug.WriteLine("Renewed token.");
         }
 
         private async void OnTokenExpiredCallback(object stateInfo)
@@ -80,6 +79,7 @@ namespace BabelFish.Services
                 uriBuilder.Path += "/issueToken";
 
                 var result = await client.PostAsync(uriBuilder.Uri.AbsoluteUri, null);
+                result.EnsureSuccessStatusCode();
                 return await result.Content.ReadAsStringAsync();
             }
         }

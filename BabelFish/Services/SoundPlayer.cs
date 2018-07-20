@@ -18,7 +18,7 @@ namespace BabelFish.Services
 {
     public enum Sounds
     {
-        NoInternetConnection,
+        ConnectionError,
         Connected,
         Disconnected,
         Error

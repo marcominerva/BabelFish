@@ -99,10 +99,7 @@ namespace BabelFish.Services
             IsSocketConnected = true;
         }
 
-        public async Task InitializeAsync()
-        {
-            await auth.GetAccessTokenAsync();
-        }
+        public Task InitializeAsync => auth.GetAccessTokenAsync();
 
         private async Task DoConnectAsync(string from, string to, string voice)
         {
