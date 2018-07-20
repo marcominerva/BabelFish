@@ -146,6 +146,7 @@
             <behaviors:PushButtonBehavior
                 ButtonType="PullDown"
                 ClickCommand="{x:Bind ViewModel.DisconnectCommand}"
+                LongClickCommand="{x:Bind ViewModel.ShutdownCommand}"
                 PinNumber="17" />
             <behaviors:PushButtonBehavior
                 ButtonType="PullDown"

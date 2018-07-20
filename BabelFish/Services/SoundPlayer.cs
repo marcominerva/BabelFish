@@ -21,7 +21,8 @@ namespace BabelFish.Services
         ConnectionError,
         Connected,
         Disconnected,
-        Error
+        Error,
+        Shutdown
     }
 
     /// <summary>

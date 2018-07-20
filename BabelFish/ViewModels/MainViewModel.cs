@@ -26,6 +26,8 @@ using System.IO;
 using System.Diagnostics;
 using Windows.Storage;
 using Newtonsoft.Json;
+using Windows.Foundation.Metadata;
+using Windows.System;
 
 namespace BabelFish.ViewModels
 {
@@ -118,13 +120,15 @@ namespace BabelFish.ViewModels
 
         public ObservableCollection<ChatMessage> Messages { get; set; } = new ObservableCollection<ChatMessage>();
 
-        public RelayCommand ConnectCommand { get; set; }
+        public RelayCommand ConnectCommand { get; private set; }
 
-        public RelayCommand DisconnectCommand { get; set; }
+        public RelayCommand DisconnectCommand { get; private set; }
 
-        public RelayCommand StartTalkingCommand { get; set; }
+        public RelayCommand StartTalkingCommand { get; private set; }
 
-        public RelayCommand StopTalkingCommand { get; set; }
+        public RelayCommand StopTalkingCommand { get; private set; }
+
+        public RelayCommand ShutdownCommand { get; private set; }
 
         public MainViewModel()
         {
@@ -135,6 +139,7 @@ namespace BabelFish.ViewModels
         {
             ConnectCommand = new RelayCommand(async () => await DoConnectAsync());
             DisconnectCommand = new RelayCommand(async () => await DoDisconnectAsync());
+            ShutdownCommand = new RelayCommand(DoShutdown);
 
             StartTalkingCommand = new RelayCommand(() =>
             {
@@ -333,10 +338,14 @@ namespace BabelFish.ViewModels
 
                 if (settings != null)
                 {
-                    speechClient = new SpeechTranslateClient(settings.SpeechSubscriptionKey);
                     SelectedSourceLanguage = SourceLanguages.FirstOrDefault(l => l.Code == settings.Source);
                     SelectedTranslationLanguage = TranslationLanguages.FirstOrDefault(l => l.Code == settings.Translation);
                     SelectedVoice = Voices.FirstOrDefault(l => l.Code == settings.Voice);
+
+                    if (settings.AutoConnect)
+                    {
+                        await DoConnectAsync();
+                    }
                 }
             }
             catch
@@ -421,5 +430,21 @@ namespace BabelFish.ViewModels
         private void Play(Sounds sound) => Play(sound.ToString());
 
         private void Play(string sound) => SoundPlayer.Instance.Play(sound);
+
+        public void DoShutdown()
+        {
+            try
+            {
+                // Shutdowns the device immediately.
+                if (ApiInformation.IsTypePresent("Windows.System.ShutdownManager"))
+                {
+                    SoundPlayer.Instance.Play(Sounds.Shutdown);
+                    ShutdownManager.BeginShutdown(ShutdownKind.Shutdown, TimeSpan.FromSeconds(3));
+                }
+            }
+            catch
+            {
+            }
+        }
     }
 }

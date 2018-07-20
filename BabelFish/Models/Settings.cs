@@ -15,5 +15,7 @@ namespace BabelFish.Models
         public string Translation { get; set; }
 
         public string Voice { get; set; }
+
+        public bool AutoConnect { get; set; }
     }
 }
